@@ -22,27 +22,54 @@ class MedicalRAGPipeline:
             {
                 "guideline_id": "WHO-2023-001",
                 "title": "Acute Abdominal Pain Assessment",
-                "content": "Assess for peritonitis signs...",
+                "content": "Assess for peritonitis signs: rebound tenderness, guarding, rigidity. Check vital signs. Consider imaging (CT abdomen) if surgical cause suspected. Early surgical consultation for suspected perforation or ischemia.",
                 "source": "WHO Clinical Guidelines 2023",
-                "relevance_score": 0.92
+                "relevance_score": 0.92,
+                "citations": ["WHO-2023", "CDC-2022"]
             },
             {
                 "guideline_id": "CDC-2022-045",
                 "title": "Chest Pain Triage Protocol",
-                "content": "Immediate ECG within 10 minutes...",
+                "content": "Immediate ECG within 10 minutes of arrival. Troponin at 0 and 3 hours. Consider HEART score for risk stratification. Aspirin 325mg chewed if ACS suspected. Nitroglycerin for ongoing pain. Immediate cardiology consultation for STEMI.",
                 "source": "CDC Emergency Protocols 2022",
-                "relevance_score": 0.87
+                "relevance_score": 0.87,
+                "citations": ["CDC-2022", "AHA-2021"]
+            },
+            {
+                "guideline_id": "WHO-2023-012",
+                "title": "Headache Red Flags Assessment",
+                "content": "Thunderclap headache: consider subarachnoid hemorrhage. New headache in >50: consider temporal arteritis. Headache with fever/stiff neck: consider meningitis. Papilledema: consider IIH or mass lesion. Progressive worsening: imaging indicated.",
+                "source": "WHO Neurology Guidelines 2023",
+                "relevance_score": 0.82,
+                "citations": ["WHO-2023", "IHS-2018"]
             }
         ]
     
     async def get_guideline_by_id(self, guideline_id: str) -> dict:
         """Get full guideline by ID."""
-        return {
-            "guideline_id": guideline_id,
-            "title": "Sample Guideline",
-            "full_text": "Full guideline content...",
-            "citations": ["WHO-2023", "CDC-2022"]
+        guidelines = {
+            "WHO-2023-001": {
+                "guideline_id": "WHO-2023-001",
+                "title": "Acute Abdominal Pain Assessment",
+                "full_text": "Complete guideline text for abdominal pain assessment...",
+                "sections": ["Assessment", "Red Flags", "Investigations", "Management"],
+                "citations": ["WHO-2023", "CDC-2022"]
+            },
+            "CDC-2022-045": {
+                "guideline_id": "CDC-2022-045",
+                "title": "Chest Pain Triage Protocol",
+                "full_text": "Complete guideline text for chest pain triage...",
+                "sections": ["Initial Assessment", "ECG Criteria", "Biomarkers", "Risk Stratification", "Disposition"],
+                "citations": ["CDC-2022", "AHA-2021"]
+            }
         }
+        return guidelines.get(guideline_id, {
+            "guideline_id": guideline_id,
+            "title": "Guideline Not Found",
+            "full_text": "Guideline not found in database",
+            "sections": [],
+            "citations": []
+        })
 
 # Singleton instance
 rag_pipeline = None
