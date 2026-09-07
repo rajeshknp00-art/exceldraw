@@ -1,4 +1,4 @@
-"""RAG Pipeline for medical guidelines retrieval."""
+"""RAG Pipeline for medical guidelines retrieval using Groq embeddings."""
 from typing import List, Dict, Any
 import os
 from dotenv import load_dotenv
@@ -10,14 +10,45 @@ class MedicalRAGPipeline:
         self.milvus_uri = os.getenv("MILVUS_URI", "http://localhost:19530")
         self.milvus_token = os.getenv("MILVUS_TOKEN", "root")
         self.collection_name = "medical_guidelines"
-    
+        self.groq_api_key = os.getenv("GROQ_API_KEY")
+        
+        # Use Groq for embeddings (free tier available)
+        # Groq supports embedding models like nomic-embed-text
+        self.groq_base_url = "https://api.groq.com/openai/v1"
+        
     async def initialize(self):
         """Initialize the RAG pipeline with medical guidelines."""
         pass
     
+    async def _get_embedding(self, text: str) -> List[float]:
+        """Get embedding using Groq's embedding API."""
+        if not self.groq_api_key:
+            # Return mock embedding for development
+            import hashlib
+            import random
+            random.seed(hash(text))
+            return [random.uniform(-1, 1) for _ in range(768)]
+        
+        import httpx
+        async with httpx.AsyncClient() as client:
+            headers = {"Authorization": f"Bearer {self.groq_api_key}"}
+            response = await client.post(
+                f"https://api.groq.com/openai/v1/embeddings",
+                json={
+                    "model": "nomic-embed-text-v1.5",
+                    "input": text
+                },
+                headers={"Authorization": f"Bearer {self.groq_api_key}", "Content-Type": "application/json"},
+                timeout=30.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data["data"][0]["embedding"]
+    
     async def search_guidelines(self, query: str, top_k: int = 5) -> List[dict]:
         """Search medical guidelines for relevant content."""
-        # Mock implementation - replace with actual Milvus search
+        # In production, this would use Milvus/vector DB
+        # For now, return mock data with medical guidelines
         return [
             {
                 "guideline_id": "WHO-2023-001",
