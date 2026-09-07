@@ -1,78 +1,36 @@
 'use client'
 
 import { useState } from 'react'
-import { Mic, Send, AlertTriangle, Loader2, Download, Languages, Shield, Brain, HeartPulse } from 'lucide-react'
-import { useTranslation } from '@/hooks/useTranslation'
+import { HeartPulse, Brain, Shield, Languages, Mic, Download, AlertTriangle, Loader2 } from 'lucide-react'
+import { SymptomInput } from '@/components/triage/SymptomInput'
+import { TriageResult } from '@/components/triage/TriageResult'
+import { useTriage } from '@/hooks/useTriage'
+import { getTranslation, supportedLanguages } from '@/lib/translations'
 
 export default function HomePage() {
-  const [symptoms, setSymptoms] = useState('')
+  const { isAnalyzing, result, error, isGeneratingReport, analyzeSymptoms, generateReport, reset } = useTriage()
   const [language, setLanguage] = useState('en')
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [result, setResult] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
-  const { t, languages } = useTranslation()
-
-  const handleAnalyze = async () => {
-    if (!symptoms.trim()) return
-    
-    setIsAnalyzing(true)
-    setError(null)
-    
-    try {
-      const response = await fetch('/api/v1/triage/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symptoms, language })
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        setResult(data.data)
-      } else {
-        setError(data.error || 'Analysis failed')
-      }
-    } catch (err) {
-      setError('Failed to analyze symptoms. Please try again.')
-    } finally {
-      setIsAnalyzing(false)
+  
+  const handleAnalyze = async (symptoms: string, lang: string) => {
+    await analyzeSymptoms(symptoms, lang)
+  }
+  
+  const handleGenerateReport = async (format: string) => {
+    if (result?.triage_id) {
+      await generateReport(result.triage_id, format, language)
     }
   }
-
-  const handleVoiceInput = async () => {
-    // Mock voice input - would use Web Speech API
-    setSymptoms('I have chest pain that started an hour ago. It feels like pressure in the center of my chest.')
-  }
-
-  const handleGenerateReport = async () => {
-    if (!result) return
-    
-    try {
-      const response = await fetch('/api/v1/reports/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          triage_id: result.triage_id, 
-          format: 'pdf',
-          language: language
-        })
-      })
-      
-      const data = await response.json()
-      if (data.success && data.download_url) {
-        window.open(data.download_url, '_blank')
-      }
-    } catch (err) {
-      console.error('Report generation failed:', err)
-    }
+  
+  const handleNewAnalysis = () => {
+    reset()
   }
 
   const getUrgencyColor = (level: string) => {
     switch (level) {
-      case 'emergency': return 'bg-medical-red text-white'
-      case 'urgent': return 'bg-medical-orange text-white'
-      case 'routine': return 'bg-medical-amber text-white'
-      case 'self_care': return 'bg-medical-green text-white'
+      case 'emergency': return 'bg-red-600 text-white'
+      case 'urgent': return 'bg-orange-600 text-white'
+      case 'routine': return 'bg-amber-600 text-white'
+      case 'self_care': return 'bg-green-600 text-white'
       default: return 'bg-gray-500 text-white'
     }
   }
@@ -85,13 +43,15 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white dark:from-gray-900 dark:to-gray-950">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
       {/* Header */}
       <header className="border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <HeartPulse className="h-8 w-8 text-primary-600" />
+              <svg className="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
               <div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">Healthcare AI Triage</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">AI-powered symptom analysis</p>
@@ -117,7 +77,9 @@ export default function HomePage() {
                 ))}
               </select>
               <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <Shield className="h-4 w-4" />
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-5.986 5.986M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
                 <span>HIPAA Ready</span>
               </div>
             </div>
@@ -140,20 +102,28 @@ export default function HomePage() {
 
           {/* Feature Badges */}
           <div className="flex flex-wrap justify-center gap-3 mb-8">
-            <span className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full text-sm font-medium">
-              <Brain className="h-4 w-4" />
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.548c0-.59-.348-1.13-.858-1.386z" />
+              </svg>
               <span>RAG Medical Guidelines</span>
             </span>
-            <span className="inline-flex items-center gap-2 px-4 py-2 bg-medical-green/10 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
-              <Shield className="h-4 w-4" />
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-5.986 5.986M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
               <span>Guardrails Protected</span>
             </span>
-            <span className="inline-flex items-center gap-2 px-4 py-2 bg-medical-amber/10 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
-              <Languages className="h-4 w-4" />
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 114 0 2 2 0 01-4 0zM1.105 6.553A9.044 9.044 0 0112 5.4a9.044 9.044 0 008.588 5.598" />
+              </svg>
               <span>6 Languages</span>
             </span>
-            <span className="inline-flex items-center gap-2 px-4 py-2 bg-medical-red/10 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-sm font-medium">
-              <HeartPulse className="h-4 w-4" />
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-sm font-medium">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
               <span>Voice Input</span>
             </span>
           </div>
@@ -167,85 +137,19 @@ export default function HomePage() {
                 Describe Your Symptoms
               </h3>
               
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="symptoms" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Describe your symptoms in detail
-                  </label>
-                  <div className="relative">
-                    <textarea
-                      id="symptoms"
-                      value={symptoms}
-                      onChange={(e) => setSymptoms(e.target.value)}
-                      rows={5}
-                      className="w-full px-4 py-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                      placeholder="Describe your symptoms in detail... (e.g., 'I have chest pain that started an hour ago. It feels like pressure in the center of my chest and radiates to my left arm.')"
-                    />
-                    <div className="absolute bottom-2 right-2 flex gap-2">
-                      <button
-                        onClick={handleVoiceInput}
-                        disabled={isAnalyzing}
-                        className="p-2 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-900/50 transition-colors"
-                        aria-label="Voice input"
-                      >
-                        <Mic className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
+              <SymptomInput
+                onAnalyze={handleAnalyze}
+                isAnalyzing={isAnalyzing}
+                language={language}
+                onLanguageChange={setLanguage}
+              />
+              
+              {error && (
+                <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
+                  <p className="font-medium">Error</p>
+                  <p className="text-sm mt-1">{error}</p>
                 </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Age</label>
-                    <input type="number" min="0" max="120" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="Optional" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
-                      <option value="">Select</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Language</label>
-                    <select value={language} onChange={(e) => setLanguage(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500">
-                      <option value="en">English</option>
-                      <option value="es">Español</option>
-                      <option value="fr">Français</option>
-                      <option value="de">Deutsch</option>
-                      <option value="zh">中文</option>
-                      <option value="hi">हिन्दी</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleAnalyze}
-                  disabled={isAnalyzing || !symptoms.trim()}
-                  className="w-full py-4 bg-primary-600 hover:bg-primary-700 disabled:bg-primary-300 text-white font-semibold rounded-lg text-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="h-5 w-5" />
-                      Analyze Symptoms
-                    </>
-                  )}
-                </button>
-
-                {error && (
-                  <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
-                    <p className="font-medium">Error</p>
-                    <p className="text-sm mt-1">{error}</p>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </section>
@@ -253,122 +157,12 @@ export default function HomePage() {
         {/* Results */}
         {result && (
           <section className="mb-12">
-            <div className="max-w-3xl mx-auto space-y-6">
-              {/* Urgency Banner */}
-              <div className={`rounded-xl p-6 text-center ${getUrgencyColor(result.urgency_level)} animate-pulse`}>
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <AlertTriangle className="h-8 w-8" />
-                  <span className="text-3xl font-bold">{urgencyLabels[result.urgency_level as keyof typeof urgencyLabels] || result.urgency_level.toUpperCase()}</span>
-                  <AlertTriangle className="h-8 w-8" />
-                </div>
-                <p className="text-lg font-medium">Confidence: {Math.round(result.confidence * 100)}%</p>
-              </div>
-
-              {/* Possible Conditions */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
-                <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <Brain className="h-5 w-5 text-primary-600" />
-                  Possible Conditions
-                </h4>
-                <div className="space-y-3">
-                  {result.possible_conditions.map((condition: any, idx: number) => (
-                    <div key={idx} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h5 className="font-semibold text-gray-900 dark:text-white">{condition.name}</h5>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{condition.description}</p>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                            {Math.round(condition.probability * 100)}%
-                          </span>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">probability</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Recommended Action */}
-              <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
-                <h4 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Recommended Action
-                </h4>
-                <p className="text-blue-800 dark:text-blue-200">{result.recommended_action}</p>
-              </div>
-
-              {/* Red Flags */}
-              {result.red_flags.length > 0 && (
-                <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-6">
-                  <h4 className="text-lg font-bold text-red-900 dark:text-red-100 mb-3 flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5" />
-                    Red Flags - Seek Immediate Care
-                  </h4>
-                  <ul className="space-y-2">
-                    {result.red_flags.map((flag: string, idx: number) => (
-                      <li key={idx} className="flex items-start gap-2 text-red-800 dark:text-red-200">
-                        <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                        <span>{flag}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Body Parts */}
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6">
-                <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  <HeartPulse className="h-5 w-5 text-red-600" />
-                  Body Parts Involved
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {result.body_parts_involved.map((part: string, idx: number) => (
-                    <span key={idx} className="px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full text-sm font-medium">
-                      {part}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Follow-up Questions */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
-                <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <Brain className="h-5 w-5 text-primary-600" />
-                  Follow-up Questions for Your Doctor
-                </h4>
-                <div className="space-y-3">
-                  {result.follow_up_questions.map((question: string, idx: number) => (
-                    <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs font-bold flex items-center justify-center">
-                        {idx + 1}
-                      </span>
-                      <p className="text-gray-700 dark:text-gray-300 text-sm">{question}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Disclaimer */}
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-600 dark:text-gray-400">{result.disclaimer}</p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-wrap gap-4 justify-center">
-                <button
-                  onClick={handleGenerateReport}
-                  className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2"
-                >
-                  <Download className="h-5 w-5" />
-                  Generate Report (PDF)
-                </button>
-                <button className="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-semibold rounded-lg transition-colors">
-                  New Analysis
-                </button>
-              </div>
-            </div>
+            <TriageResult
+              result={result}
+              onGenerateReport={handleGenerateReport}
+              onNewAnalysis={handleNewAnalysis}
+              language={language}
+            />
           </section>
         )}
 
@@ -377,16 +171,16 @@ export default function HomePage() {
           <h3 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-8">GenAI Techniques Integrated</h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {[
-              { icon: Mic, title: 'Voice AI', desc: 'STT + TTS for accessible symptom input in 6 languages', color: 'bg-medical-red/10' },
-              { icon: Brain, title: 'RAG Pipeline', desc: 'Medical guidelines vector DB with hybrid search & citations', color: 'bg-primary-100' },
-              { icon: Shield, title: 'Guardrails', desc: 'No diagnosis, PII redaction, liability disclaimers', color: 'bg-medical-green/10' },
-              { icon: Languages, title: 'Multi-language', desc: '6 languages: EN, ES, FR, DE, ZH, HI with RTL support', color: 'bg-medical-amber/10' },
-              { icon: Brain, title: 'Knowledge Graph', desc: 'Medical entity relationships (symptoms, conditions, medications)', color: 'bg-purple-100' },
-              { icon: HeartPulse, title: 'Content Generation', desc: 'Triage report generation (PDF/HTML/Text) with citations', color: 'bg-medical-red/10' },
+              { icon: '🎤', title: 'Voice AI', desc: 'STT + TTS for accessible symptom input in 6 languages', color: 'bg-red-100' },
+              { icon: '🧠', title: 'RAG Pipeline', desc: 'Medical guidelines vector DB with hybrid search & citations', color: 'bg-blue-100' },
+              { icon: '🛡️', title: 'Guardrails', desc: 'No diagnosis, PII redaction, liability disclaimers', color: 'bg-green-100' },
+              { icon: '🌐', title: 'Multi-language', desc: '6 languages: EN, ES, FR, DE, ZH, HI with RTL support', color: 'bg-amber-100' },
+              { icon: '🔗', title: 'Knowledge Graph', desc: 'Medical entity relationships (symptoms, conditions, medications)', color: 'bg-purple-100' },
+              { icon: '📄', title: 'Content Generation', desc: 'Triage report generation (PDF/HTML/Text) with citations', color: 'bg-red-100' },
             ].map((feature, idx) => (
               <div key={idx} className={`rounded-2xl p-6 border border-gray-200 dark:border-gray-700 ${feature.color} dark:opacity-80`}>
-                <feature.icon className="h-8 w-8 text-primary-600 dark:text-primary-400 mb-3" />
-                <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{feature.title}</feature.icon>
+                <span className="text-3xl mb-3">{feature.icon}</span>
+                <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{feature.title}</h4>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">{feature.desc}</p>
               </div>
             ))}
@@ -405,12 +199,14 @@ export default function HomePage() {
             ].map((stack, idx) => (
               <div key={idx} className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
                 <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <Brain className="h-5 w-5 text-primary-600" />
+                  <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.548c0-.59-.348-1.13-.858-1.386z" />
+                  </svg>
                   {stack.category}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {stack.tech.map((t, i) => (
-                    <span key={i} className="px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-full text-sm font-medium">
+                    <span key={i} className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
                       {t}
                     </span>
                   ))}
@@ -438,4 +234,11 @@ export default function HomePage() {
       </main>
     </div>
   )
+}
+
+const urgencyLabels = {
+  emergency: 'EMERGENCY',
+  urgent: 'URGENT',
+  routine: 'ROUTINE',
+  self_care: 'SELF CARE'
 }
